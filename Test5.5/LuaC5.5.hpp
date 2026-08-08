@@ -70,6 +70,7 @@
     /*LUAC_ENTRY((Base), rawgeti);*/ \
     /*LUAC_ENTRY((Base), rawseti);*/ \
     LUAC_ENTRY((Base), createtable); \
+    LUAC_ENTRY((Base), newuserdatauv); \
     LUAC_ENTRYEX((Base), _temp, lua_getglobal); \
         using Tgetglobal = void(*)(lua_State *L, const char *name); \
         static auto __getglobal = (Tgetglobal)(Base)->_temp; \

@@ -3,6 +3,25 @@
 #include <LuaVM.hpp>
 #include <Lua/lua.hpp>
 #include "LuaC5.5.hpp"
+
+struct MyClass {
+
+};
+
+
+MyClass* Test0() {
+    return {};
+}
+
+void Test1(int A) {
+    return;
+}
+
+void Test2(float A) {
+    return;
+}
+
+
 int main()
 {
     system("chcp 65001 > nul");
@@ -10,12 +29,12 @@ int main()
     LuaVM vm;
     LUAC_55(vm.GetCInfo());
     vm.Startup();
-    vm.PushCFunction([](lua_State* L) -> int {
-        return 0;
-    });
-    vm.SetGlobal("Test");
-
-    if (vm.ExecuteScript("Test('calc')1") != LuaStatus::Ok) {
+    
+    vm.RegFunction("Test", Test0);
+    
+    //auto Class = vm.RegClass();
+    luaL_openlibs(vm.GetState());
+    if (vm.ExecuteScript("print(Test())") != LuaStatus::Ok) {
         printf("Lua执行失败！%s", vm.ToString(-1));
     }
 }

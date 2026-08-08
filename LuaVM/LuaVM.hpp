@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <cstdint>
+#include <vector>
 struct lua_State;
 typedef void* (*lua_Alloc) (void* ud, void* ptr, size_t osize, size_t nsize);
 typedef const char* (*lua_Reader) (lua_State* L, void* ud, size_t* sz);
@@ -14,26 +15,16 @@ typedef int (*lua_KFunction) (lua_State* L, int status, lua_KContext ctx);
 
 enum class LuaType
 {
-    None = -1,
-    Nil,
-    Boolean,
-    LightUserdata,
-    Number,
-    String,
-    Table,
-    Function,
-    Userdata,
-    Thread
+    None = -1, Nil, Boolean,
+    LightUserdata, Number,
+    String, Table, Function,
+    Userdata, Thread
 };
 
 enum class LuaStatus
 {
-    Ok = 0,
-    Yield = 1,
-    ErrorRun = 2,
-    ErrorSyntax = 3,
-    ErrorMemory = 4,
-    Error = 5
+    Ok = 0, Yield, ErrorRun,
+    ErrorSyntax, ErrorMemory, Error
 };
 
 using LuaInt = __int64;
@@ -43,11 +34,9 @@ using LuaBol = bool;
 using LuaUdt = void*;
 
 using LuaCFunc = int (*)(lua_State*);
-#include <functional>
 #include <memory>
 #include <string>
-using LuaCFuncWrap = std::function<int(class LuaVM*)>;
-using LuaCFuncWrap2 = int(*)(class LuaVM*);
+using LuaTransfer = int(*)(class LuaVM*);
 
 namespace LuaC
 {
@@ -88,6 +77,7 @@ namespace LuaC
     //using trawgeti = void(*)(lua_State* L, int idx, LuaInt n);
     //using trawseti = void(*)(lua_State* L, int idx, LuaInt n);
     using tcreatetable = void(*)(lua_State* L, int narr, int nrec);
+    using tnewuserdatauv = void*(*)(lua_State* L, size_t sz, int nuvalue);
     using tgetglobal = void(*)(lua_State* L, const char* name);
     using tsetglobal = void(*)(lua_State* L, const char* name);
     using tlua_getmetatable = int(*)(lua_State* L, int idx);
@@ -158,6 +148,7 @@ namespace LuaC
         //trawgeti rawgeti;
         //trawseti rawseti;
         tcreatetable createtable;
+        tnewuserdatauv newuserdatauv;
         tgetglobal getglobal; /*nullable*/
         tsetglobal setglobal; /*nullable*/
         tlua_getmetatable getmetatable;
@@ -190,13 +181,54 @@ namespace LuaC
     };
 }
 
+struct CallableBase {
+    virtual ~CallableBase() = default;
+    virtual int invoke(LuaVM* L) = 0;
+    static int __stdcall Forward(CallableBase* self, LuaVM* L)
+    {
+        return self->invoke(L);
+    }
+};
+
+template<class FnPtr>
+struct BridgingFactory {
+    FnPtr Function;
+
+    // ---------- 类型萃取 ----------
+    template<typename T>
+    struct FunctionTraits;
+
+    template<typename ReturnType, typename... Params>
+    struct FunctionTraits<ReturnType(*)(Params...)> {
+        using Return = ReturnType;
+        using ArgTypes = std::tuple<Params...>;
+        static constexpr size_t arity = sizeof...(Params);
+
+        template<size_t Index>
+        using ArgAt = std::tuple_element_t<Index, ArgTypes>;
+    };
+
+    // ---------- Lua 栈操作（按需实现） ----------
+    template<typename T>
+    T ReadFromLua(LuaVM* vm, int index);
+
+    template<typename T>
+    void PushToLua(LuaVM* vm, T&& value);
+
+    // ---------- 调用辅助：接受索引序列 ----------
+    template<size_t... Indices>
+    int CallImpl(LuaVM* vm, std::index_sequence<Indices...>);
+
+    int Transition(LuaVM* vm);
+};
+
 class LUAVM_API LuaVM
 {
 public:
     LuaVM() = default; ~LuaVM();
     LuaVM(LuaVM&& other) = default; // 默认移动构造
     LuaVM& operator=(LuaVM&& other) = default;
-    LuaVM(const LuaVM&) = delete; // 禁用拷贝
+    LuaVM(const LuaVM&) = delete;   // 禁用拷贝
     LuaVM& operator=(const LuaVM&) = delete;
 
     // 创建/销毁Lua虚拟机
@@ -206,35 +238,21 @@ public:
     // 附加到已有的lua_State
     void FromState(lua_State* L);
 
-    // 获取底层lua_State指针
-    lua_State* GetState();
-
-    // 绑定C接口
-    LuaC::Info* GetCInfo();
-
+    lua_State* GetState();  // 获取底层lua_State指针
+    LuaC::Info* GetCInfo(); // 绑定C接口
 
     /*====================栈操作====================*/
 
     int GetStackTop() const;
     void SetStackTop(int Index);
 
-    // 弹出栈顶元素
-    void Popup(int Count = 1);
-
-    // 将指定元素赋值到指定位置（覆盖）
-    void Assign(int FromIndex, int ToIndex);
-
-    // 移除指定索引的元素
-    void Remove(int Index);
-
-    // 将栈顶元素移动到指定索引位置
-    void MoveTopTo(int Index);
-
-    // 弹出栈顶元素，并用它替换指定索引位置的元素
-    void Replace(int Index);
-
-    // 检查栈空间是否足够，如果不足则扩展栈空间
-    int SureStackSpace(int Count);
+    
+    void Popup(int Count = 1);     // 弹出栈顶元素
+    void Assign(int From, int To); // 将指定元素赋值到指定位置（覆盖）
+    void Remove(int Index);        // 移除指定索引的元素
+    void MoveTopTo(int Index);     // 将栈顶元素移动到指定索引位置
+    void Replace(int Index);       // 弹出栈顶元素，并用它替换指定索引位置的元素
+    int SureStackSpace(int Count); // 检查栈空间是否足够，如果不足则扩展栈空间
 
     /*====================压入数据====================*/
 
@@ -265,36 +283,24 @@ public:
 
     // 创建一个表
     void CreateTable(int Count = 0, int Records = 0);
+    // 创建用户数据
+    void* CreateUserdata(size_t Size);
 
     // (gettable/rawget)弹出key，读取指定索引的表的key值
     void ReadTableField(int IndexOfTableInStack, bool RawMode = false);
-
     // (settable/rawset)弹出key和value，设置指定索引的表的key值
     void WriteTableField(int IndexOfTableInStack, bool RawMode = false);
 
-    // 获取表字符串键的值
-    void GetField(int Index, const char* Key);
-
-    // 设置表字符串键的值
-    void SetField(int Index, const char* Key);
-
-    // 获取表整数键的值
-    void GetField(int Index, LuaInt Key);
-
-    // 设置表整数键的值
-    void SetField(int Index, LuaInt Key);
-
-    // 获取全局变量
-    void GetGlobal(const char* Name);
-
-    // 设置全局变量
-    void SetGlobal(const char* Name);
-
-    // 获取元表
-    bool GetMetatable(int Index);
-
-    // 设置元表
-    void SetMetatable(int Index);
+    void GetField(int Index, const char* Key); // 获取表字符串键的值
+    void SetField(int Index, const char* Key); // 设置表字符串键的值
+    void GetField(int Index, LuaInt Key); // 获取表整数键的值
+    void SetField(int Index, LuaInt Key); // 设置表整数键的值
+    void GetGlobal(const char* Name);   // 获取全局表中的字段
+    void SetGlobal(const char* Name);   // 设置全局表中的字段
+    void GetRegistry(const char* Name); // 获取注册表中的字段
+    void SetRegistry(const char* Name); // 设置注册表中的字段
+    bool GetMetatable(int Index); // 获取元表
+    void SetMetatable(int Index); // 设置元表
 
     /*====================调用====================*/
 
@@ -322,11 +328,9 @@ public:
     // 获取栈元素类型
     LuaType GetType(int Idx) const;
 
-    // 获取栈元素类型名
-    const char* GetTypeName(int Idx) const;
-
-    // 获取LuaType对应的类型名
-    const char* GetNameOfType(LuaType Type) const;
+    
+    const char* GetTypeName(int Idx) const; // 获取栈元素类型名
+    const char* GetNameOfType(LuaType Type) const; // 获取LuaType对应的类型名
 
     bool IsNil(int Index) const;
     bool IsVoid(int Index) const; // nil和none都算void
@@ -338,25 +342,25 @@ public:
 
     bool IsInteger(int Index) const;
 
-    
-    template<typename T>
-    T Get(int Index);
 
-    template<typename T>
-    T Cast(int Index);
+    /*====================模板方法====================*/
 
-    template<typename T>
-    void Push(T Value);
+    template<typename T> T Get(int Index);
+    template<typename T> T Cast(int Index);
+    template<typename T> void Push(T Value);
 
-    template<typename Callable>
-    LuaCFunc CallableUnfold(Callable Object);
+
+    /*====================绑定====================*/
 
     template<typename Callable>
     void PushFunction(Callable Value);
 
+    template<class ReturnType, class... Params>
+    void RegFunction(char const* Name, ReturnType(*Function)(Params...));
 
-
-
+    template<typename Callable>
+    void RegNativeFunction(const char* Name, Callable Object);
+    void _RegNativeFunction(const char* Name, CallableBase* Object);
 
 private:
     LuaC::Info m_CInfo = {};
@@ -364,11 +368,10 @@ private:
     bool m_ = false;
     lua_State* m_State = nullptr;
 
-    std::vector<std::unique_ptr<LuaCFuncWrap>> m_CallableObjs;
-    std::vector<LuaCFunc> m_VirtualFuncs;
-    static int __stdcall ForwardProxy(LuaVM* self, LuaCFuncWrap* obj);
+    std::vector<CallableBase*> m_FuncObjects;
 
-    LuaCFunc _UnfoldCallableObject(std::unique_ptr<LuaCFuncWrap> Object);
+    std::vector<LuaCFunc> m_VirtualFuncs;
+    LuaCFunc _UnfoldToLuaC(CallableBase* Object);
 
     inline LuaStatus Native2Status(int Status) const;
 };
@@ -392,14 +395,14 @@ inline constexpr bool is_callable_v = is_callable<T>::value;
 
 
 template<typename T>
-struct is_function_pointer : std::false_type {};
+struct iFunction_pointer : std::false_type {};
 
 template<typename T>
-struct is_function_pointer<T*> : std::is_function<T> {};
+struct iFunction_pointer<T*> : std::is_function<T> {};
 
 // 辅助别名（C++14）
 template<typename T>
-inline constexpr bool is_function_pointer_v = is_function_pointer<T>::value;
+inline constexpr bool iFunction_pointer_v = iFunction_pointer<T>::value;
 
 
 template<typename T>
@@ -432,11 +435,17 @@ inline T LuaVM::Get(int Index)
     else if constexpr (std::is_same_v<T, uint64_t>) {
         return static_cast<uint64_t>(CheckInteger(Index));
     }
+    else if constexpr (std::is_same_v<T, float>) {
+        return static_cast<float>(CheckNumber(Index));
+    }
+    else if constexpr (std::is_same_v<T, double>) {
+        return static_cast<double>(CheckNumber(Index));
+    }
     else if constexpr (std::is_same_v<T, const char*>) {
         return CheckString(Index);
     }
     else if constexpr (std::is_same_v<T, void*>
-        or std::is_same_v<T, const void*> or is_function_pointer_v<T>)
+        or std::is_same_v<T, const void*> or iFunction_pointer_v<T>)
     {
         if (IsUserdata(Index)) {
             return static_cast<T>(ToUserdata(Index));
@@ -536,13 +545,17 @@ void LuaVM::Push(T Value)
         PushCFunction(Value);
     }
     else if constexpr (is_callable_v<T>
-        or std::is_same_v<T, LuaCFuncWrap>
-        or std::is_same_v<T, LuaCFuncWrap2>) {
+        /*or std::is_same_v<T, LuaCFuncWrap>
+        or std::is_same_v<T, LuaCFuncWrap2>*/) {
         PushFunction(Value);
     }
     else if constexpr (std::is_pointer_v<T>) {
         //static_assert(false, "unknown type1");
         //luabridge::push(m_State, Value);
+        auto p = (void**)CreateUserdata(sizeof(T));
+        *p = Value;
+        GetRegistry(typeid(*Value).raw_name());
+        SetMetatable(-2);
     }
     else {
         static_assert(false, "unknown type");
@@ -550,14 +563,97 @@ void LuaVM::Push(T Value)
 }
 
 template<typename Callable>
-LuaCFunc LuaVM::CallableUnfold(Callable Object)
-{
-    auto CallableObj = std::make_unique<LuaCFuncWrap>(Object);
-    return _UnfoldCallableObject(std::move(CallableObj));
-}
-
-template<typename Callable>
 inline void LuaVM::PushFunction(Callable Value)
 {
     PushCFunction(CallableUnfold(Value));
+}
+
+template<class ReturnType, class ...Params>
+inline void LuaVM::RegFunction(char const* Name, ReturnType(*Function)(Params...))
+{
+    using FnType = decltype(Function);
+    RegNativeFunction(Name, [=](LuaVM* vm) -> int {
+        BridgingFactory<FnType> factory;
+        factory.Function = Function;
+        return factory.Transition(vm);
+    });
+}
+
+template<typename Callable>
+inline void LuaVM::RegNativeFunction(const char* Name, Callable Object)
+{
+    struct CallableAdv : CallableBase {
+        Callable _Object;
+        CallableAdv(Callable&& other)
+            : _Object(std::move(other)) {}
+        ~CallableAdv() override = default;
+        int invoke(LuaVM* L) override {
+            return _Object(L);
+        }
+    };
+    auto obj = new CallableAdv(std::move(Object));
+    _RegNativeFunction(Name, obj);
+    m_FuncObjects.push_back(obj);
+}
+
+template<class FnPtr> template<typename T>
+inline T BridgingFactory<FnPtr>::ReadFromLua(LuaVM* vm, int index)
+{
+    return vm->Get<T>(index + 1);
+}
+
+template<class FnPtr> template<typename T>
+inline void BridgingFactory<FnPtr>::PushToLua(LuaVM* vm, T&& value)
+{
+    vm->Push(value);
+}
+
+template<class FnPtr> template<size_t ...Indices>
+inline int BridgingFactory<FnPtr>::CallImpl(LuaVM* vm, std::index_sequence<Indices...>)
+{
+    using Traits = FunctionTraits<FnPtr>;
+    using Return = typename Traits::Return;
+
+    if constexpr (std::is_same_v<Return, void>) {
+        Function(ReadFromLua<typename Traits::template ArgAt<Indices>>(vm, Indices)...);
+        return 0;
+    }
+    else {
+        auto result = Function(ReadFromLua<typename Traits::template ArgAt<Indices>>(vm, Indices)...);
+        PushToLua(vm, result);
+        return 1;
+    }
+}
+
+template<class FnPtr>
+inline int BridgingFactory<FnPtr>::Transition(LuaVM* vm)
+{
+    using Traits = FunctionTraits<FnPtr>;
+    using Return = typename Traits::Return;
+    constexpr size_t arity = Traits::arity;
+
+    if constexpr (arity == 0) {
+        if constexpr (std::is_same_v<Return, void>) {
+            Function();
+            return 0;
+        }
+        else {
+            auto result = Function();
+            PushToLua(vm, result);
+            return 1;
+        }
+    }
+    else {
+        if constexpr (std::is_same_v<Return, void>) {
+            // void 返回：直接调用，不接收结果
+            CallImpl(vm, std::make_index_sequence<arity>{});
+            return 0;
+        }
+        else {
+            // 非 void 返回：接收结果并压栈
+            auto result = CallImpl(vm, std::make_index_sequence<arity>{});
+            PushToLua(vm, result);
+            return 1;
+        }
+    }
 }

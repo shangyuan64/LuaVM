@@ -1,5 +1,6 @@
-﻿#include "pch.h"
-#include "LuaVM.hpp"
+﻿#include "LuaVM.hpp"
+#include <cmath>
+#include <Windows.h>
 
 LuaVM::~LuaVM()
 {
@@ -33,10 +34,13 @@ void LuaVM::Cleanup()
         m_State = nullptr;
     }
 
-    m_CallableObjs.clear();
-    for (auto& virtualMem : m_VirtualFuncs) {
+    for (auto ptr : m_FuncObjects) {
+        delete ptr;
+    }
+    m_FuncObjects.clear();
+
+    for (auto virtualMem : m_VirtualFuncs) {
         VirtualFree(virtualMem, 0, MEM_RELEASE);
-        virtualMem = nullptr;
     }
     m_VirtualFuncs.clear();
 }
@@ -232,6 +236,11 @@ void LuaVM::CreateTable(int Count, int Records)
     return m_CInfo.createtable(m_State, Count, Records);
 }
 
+void* LuaVM::CreateUserdata(size_t Size)
+{
+    return m_CInfo.newuserdatauv(m_State, Size, 1);
+}
+
 void LuaVM::ReadTableField(int IndexOfTableInStack, bool RawMode)
 {
     if (RawMode) {
@@ -285,6 +294,16 @@ void LuaVM::SetGlobal(const char* Name)
         return m_CInfo.setglobal(m_State, Name);
     }
     return m_CInfo.setfield(m_State, m_CInfo.GlobalTableIndex, Name);
+}
+
+void LuaVM::GetRegistry(const char* Name)
+{
+    return m_CInfo.getfield(m_State, m_CInfo.RegistryTableIndex, Name);
+}
+
+void LuaVM::SetRegistry(const char* Name)
+{
+    return m_CInfo.setfield(m_State, m_CInfo.RegistryTableIndex, Name);
 }
 
 bool LuaVM::GetMetatable(int Index)
@@ -478,16 +497,14 @@ bool LuaVM::IsInteger(int Index) const
     return std::floor(num) == num;
 }
 
-int LuaVM::ForwardProxy(LuaVM* self, LuaCFuncWrap* obj)
+void LuaVM::_RegNativeFunction(const char* Name, CallableBase* Object)
 {
-    return (*obj)(self);
+    PushCFunction(_UnfoldToLuaC(Object));
+    SetGlobal(Name);
 }
 
-LuaCFunc LuaVM::_UnfoldCallableObject(std::unique_ptr<LuaCFuncWrap> Object)
+LuaCFunc LuaVM::_UnfoldToLuaC(CallableBase* Object)
 {
-    auto pCallableObj = Object.get();
-    m_CallableObjs.push_back(std::move(Object));
-
     auto RealCFunc = (LuaCFunc)VirtualAlloc(nullptr, 64,
         MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE);
 
@@ -516,9 +533,9 @@ LuaCFunc LuaVM::_UnfoldCallableObject(std::unique_ptr<LuaCFuncWrap> Object)
     };
 
     memcpy(RealCFunc, Shell, sizeof(Shell));
-    *(uint64_t*)((BYTE*)RealCFunc + 7) = (uint64_t)pCallableObj;
-    *(uint64_t*)((BYTE*)RealCFunc + 17) = (uint64_t)this;
-    *(uint64_t*)((BYTE*)RealCFunc + 27) = (uint64_t)ForwardProxy;
+    *(uint64_t*)((BYTE*)RealCFunc + 7) = (uint64_t)this;
+    *(uint64_t*)((BYTE*)RealCFunc + 17) = (uint64_t)Object;
+    *(uint64_t*)((BYTE*)RealCFunc + 27) = (uint64_t)CallableBase::Forward;
 #else
     // push pCallableObj
     // push this
@@ -533,8 +550,8 @@ LuaCFunc LuaVM::_UnfoldCallableObject(std::unique_ptr<LuaCFuncWrap> Object)
     };
 
     memcpy(RealCFunc, Shell, sizeof(Shell));
-    *(DWORD*)((BYTE*)RealCFunc + 1) = (DWORD)pCallableObj;
-    *(DWORD*)((BYTE*)RealCFunc + 6) = (DWORD)this;
+    *(DWORD*)((BYTE*)RealCFunc + 1) = (DWORD)this;
+    *(DWORD*)((BYTE*)RealCFunc + 6) = (DWORD)Object;
     *(DWORD*)((BYTE*)RealCFunc + 11) = (DWORD)ForwardProxy;
 #endif
     m_VirtualFuncs.push_back(RealCFunc); // 对象析构时统一清理

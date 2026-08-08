@@ -1,0 +1,10 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="LuaVM/LuaVM.vcxproj" />
+  <Project Path="Test5.5/Test5.5.vcxproj">
+    <BuildDependency Project="LuaVM/LuaVM.vcxproj" />
+  </Project>
+</Solution>

@@ -17,6 +17,7 @@
     LUAC_ENTRY((Base), gettop); \
     LUAC_ENTRY((Base), settop); \
     LUAC_ENTRY((Base), copy); \
+    LUAC_ENTRY((Base), pushvalue); \
     LUAC_ENTRY((Base), rotate); \
     LUAC_ENTRY((Base), checkstack); \
     /* 压栈函数 */ \

@@ -29,13 +29,27 @@ int main()
     LuaVM vm;
     LUAC_55(vm.GetCInfo());
     vm.Startup();
-    
-    vm.RegFunction("Test", Test0);
+
+
+
+    vm.Global()
+        .RegFunction("Test0", Test0)
+        .RegFunction("Test1", Test1)
+        .RegFunction("Test2", Test2);
+
+
+
+    //vm.RegClass<MyClass>("MyClass");
+    //printf("%s\n", typeid(MyClass).raw_name());
+
+    //vm.RegFunction("Test", Test0);
+
     
     //auto Class = vm.RegClass();
     luaL_openlibs(vm.GetState());
-    if (vm.ExecuteScript("print(Test())") != LuaStatus::Ok) {
-        printf("Lua执行失败！%s", vm.ToString(-1));
+    auto status = vm.ExecuteScript("print(Test())");
+    if (!status) {
+        printf("Lua执行失败！%s", status.ToString());
     }
 }
 

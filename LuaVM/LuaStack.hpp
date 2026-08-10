@@ -1,8 +1,23 @@
 #pragma once
 #include "LuaBase.hpp"
+#include <cstdint>
+#include <string>
+#include <string_view>
 #include <type_traits>
 #include <stdio.h>
-struct LuaStack
+
+// 绑定对象的 userdata 布局。
+// TypeName 是对应注册时的字符串类名，Pointer 是真实 C++ 对象地址。
+struct LuaObjectHeader
+{
+    static constexpr uint64_t Magic = 0x4C75614F626A5631ULL;
+    uint64_t MagicValue = Magic;
+    const char* TypeName = nullptr;
+    void* Pointer = nullptr;
+    bool Owner = false;
+};
+
+struct LUAVM_API LuaStack
 {
     lua_State* State;
 	LuaC::Info* info;
@@ -26,7 +41,7 @@ struct LuaStack
     void PushInteger(LuaInt Value);
     void PushNumber(LuaNum Value);
     void PushString(LuaStr Str, size_t Len = 0);
-    void PushCFunction(LuaCFunc Func);
+    void PushCFunction(LuaCFunc Func, int UpvalueCount = 0);
     void PushLightUserdata(void* Ptr);
     void PushExternalString(const char* Str, size_t Len = 0);
 
@@ -43,6 +58,7 @@ struct LuaStack
     bool IsFullUserdata(int Index) const;
     bool IsLightUserdata(int Index) const;
     bool IsInteger(int Index) const;
+    bool IsTable(int Index) const;   // 是否是表
 
 
     /*====================获取数据====================*/
@@ -94,11 +110,23 @@ struct LuaStack
     void SetField(int Index, const char* Key); // 设置表字符串键的值
     void GetField(int Index, LuaInt Key); // 获取表整数键的值
     void SetField(int Index, LuaInt Key); // 设置表整数键的值
+    void RawGetField(int Index, const char* Key); // rawget 字符串键
+    void RawSetField(int Index, const char* Key); // rawset 字符串键
 
     void GetGlobalField(const char* Name);   // 获取全局表中的字段
     void SetGlobalField(const char* Name);   // 设置全局表中的字段
 
+    void PushGlobalTable();                  // 将全局表(_G)压入栈顶
     void PushRegistry(); // 将注册表压入栈顶
+
+    // 按字符串类名把 C++ 对象指针包装成 userdata。
+    bool TryPushObjectWithClass(void* Pointer, const char* TypeName, bool Owner);
+    // 按字符串类名 push，类未注册时直接抛 Lua 错误，避免静默返回错误结果。
+    bool PushObjectWithClass(void* Pointer, const char* ClassName, bool Owner);
+    // 从 userdata 取出对象指针，并校验类名。
+    void* GetClassObjectPointer(int Index, const char* TypeName);
+    // 不校验类名，直接取出 userdata 里的对象指针。
+    void* GetRawObjectPointer(int Index);
 
     bool GetMetatable(int Index); // 获取元表
     void SetMetatable(int Index); // 设置元表
@@ -172,11 +200,28 @@ inline T LuaStack::Get(int Index)
     else if constexpr (std::is_same_v<T, const char*>) {
         return CheckString(Index);
     }
+    else if constexpr (std::is_same_v<T, std::string>
+        or std::is_same_v<T, std::string_view>) {
+        const char* str = CheckString(Index);
+        return T(str ? str : "");
+    }
     else if constexpr (std::is_same_v<T, void*>
         or std::is_same_v<T, const void*> or iFunction_pointer_v<T>)
     {
         if (IsUserdata(Index)) {
             return static_cast<T>(ToUserdata(Index));
+        }
+        else if (IsInteger(Index)) {
+            return reinterpret_cast<T>(ToInteger(Index));
+        }
+        char buffer[256] = { 0 };
+        snprintf(buffer, sizeof(buffer),
+            "Bad Get: [%d]%s", GetType(Index), GetTypeName(Index));
+        Error(buffer);
+    }
+    else if constexpr (std::is_pointer_v<T>) {
+        if (IsUserdata(Index)) {
+            return static_cast<T>(GetRawObjectPointer(Index));
         }
         else if (IsInteger(Index)) {
             return reinterpret_cast<T>(ToInteger(Index));
@@ -224,9 +269,14 @@ inline T LuaStack::Cast(int Index)
     else if constexpr (std::is_same_v<T, const char*>) {
         return ToString(Index);
     }
+    else if constexpr (std::is_same_v<T, std::string>
+        or std::is_same_v<T, std::string_view>) {
+        const char* str = ToString(Index);
+        return T(str ? str : "");
+    }
     else if constexpr (std::is_pointer_v<T>) {
         if (IsUserdata(Index)) {
-            return static_cast<T>(ToUserdata(Index));
+            return static_cast<T>(GetRawObjectPointer(Index));
         }
         else if (IsInteger(Index)) {
             return reinterpret_cast<T>(ToInteger(Index));
@@ -265,25 +315,23 @@ void LuaStack::Push(T Value)
     else if constexpr (std::is_same_v<T, const char*>) {
         PushString(Value, strlen(Value));
     }
-    /*else if constexpr (std::is_same_v<T, std::string>
+    else if constexpr (std::is_same_v<T, char*>) {
+        PushString(Value, strlen(Value));
+    }
+    else if constexpr (std::is_same_v<T, std::string>
         or std::is_same_v<T, std::string_view>) {
         PushString(Value.data(), Value.length());
-    }*/
+    }
     else if constexpr (std::is_same_v<T, LuaCFunc>) {
         PushCFunction(Value);
     }
-    else if constexpr (is_callable_v<T>
-        /*or std::is_same_v<T, LuaCFuncWrap>
-        or std::is_same_v<T, LuaCFuncWrap2>*/) {
-        PushFunction(Value);
-    }
     else if constexpr (std::is_pointer_v<T>) {
-        //static_assert(false, "unknown type1");
-        //luabridge::push(m_State, Value);
-        auto p = (void**)NewUserdata(sizeof(T));
-        *p = Value;
-        PushRegistry(typeid(*Value).raw_name());
-        SetMetatable(-2);
+        if (Value) {
+            PushLightUserdata(const_cast<void*>(static_cast<const void*>(Value)));
+        }
+        else {
+            PushNil();
+        }
     }
     else {
         static_assert(false, "unknown type");

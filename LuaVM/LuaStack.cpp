@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "LuaStack.hpp"
+#include <cstring>
 #include <cmath>
 
 int LuaStack::GetTop() const
@@ -78,12 +79,15 @@ void LuaStack::PushNumber(LuaNum Value)
 
 void LuaStack::PushString(LuaStr Str, size_t Len)
 {
+    if (Len == 0 && Str) {
+        Len = strlen(Str);
+    }
     info->pushlstring(State, Str, Len);
 }
 
-void LuaStack::PushCFunction(LuaCFunc Func)
+void LuaStack::PushCFunction(LuaCFunc Func, int UpvalueCount)
 {
-    info->pushcclosure(State, Func, 0);
+    info->pushcclosure(State, Func, UpvalueCount);
 }
 
 void LuaStack::PushLightUserdata(void* Ptr)
@@ -172,6 +176,11 @@ bool LuaStack::IsInteger(int Index) const
 
     auto num = ToNumber(Index);
     return std::floor(num) == num;
+}
+
+bool LuaStack::IsTable(int Index) const
+{
+    return GetType(Index) == LuaType::Table;
 }
 
 LuaBol LuaStack::ToBoolean(int Index) const
@@ -367,6 +376,19 @@ void LuaStack::SetField(int Index, LuaInt Key)
     WriteTableField(Index, true);
 }
 
+void LuaStack::RawGetField(int Index, const char* Key)
+{
+    PushString(Key);
+    ReadTableField(Index, true);
+}
+
+void LuaStack::RawSetField(int Index, const char* Key)
+{
+    PushString(Key);
+    MoveTopTo(-2);
+    WriteTableField(Index, true);
+}
+
 void LuaStack::GetGlobalField(const char* Name)
 {
     if (info->getglobal) {
@@ -386,6 +408,87 @@ void LuaStack::SetGlobalField(const char* Name)
 void LuaStack::PushRegistry()
 {
     CopyToTop(info->RegistryTableIndex);
+}
+
+void LuaStack::PushGlobalTable()
+{
+    PushRegistry();
+    PushInteger(2);
+    ReadTableField(-2, true);
+    Remove(-2);
+}
+
+bool LuaStack::TryPushObjectWithClass(void* Pointer, const char* TypeName, bool Owner)
+{
+    if (!Pointer || !TypeName || !TypeName[0]) {
+        return false;
+    }
+
+    // 类元表按 "LuaVM.ClassMeta.<类名>" 存在 Registry 里。
+    std::string metaKey = "LuaVM.ClassMeta.";
+    metaKey += TypeName;
+
+    PushRegistry();
+    int registryIndex = GetTop();
+    PushString(metaKey.c_str(), metaKey.size());
+    ReadTableField(registryIndex, true);
+    if (IsNil(-1)) {
+        Remove(registryIndex);
+        Popup();
+        return false;
+    }
+
+    Remove(registryIndex);
+    auto* header = static_cast<LuaObjectHeader*>(NewUserdata(sizeof(LuaObjectHeader)));
+    header->MagicValue = LuaObjectHeader::Magic;
+    header->TypeName = TypeName;
+    header->Pointer = Pointer;
+    header->Owner = Owner;
+    MoveTopTo(-2);
+    SetMetatable(GetTop() - 1);
+    return true;
+}
+
+bool LuaStack::PushObjectWithClass(void* Pointer, const char* ClassName, bool Owner)
+{
+    if (TryPushObjectWithClass(Pointer, ClassName, Owner)) {
+        return true;
+    }
+    Error(ClassName ? "class is not registered" : "class name is null");
+    return false;
+}
+
+void* LuaStack::GetClassObjectPointer(int Index, const char* TypeName)
+{
+    if (IsLightUserdata(Index)) {
+        return ToUserdata(Index);
+    }
+    if (!IsFullUserdata(Index)) {
+        TypeError(Index, TypeName ? TypeName : "object");
+    }
+
+    auto* header = static_cast<LuaObjectHeader*>(ToUserdata(Index));
+    if (!header || header->MagicValue != LuaObjectHeader::Magic ||
+        !header->TypeName || !TypeName ||
+        strcmp(header->TypeName, TypeName) != 0) {
+        TypeError(Index, TypeName ? TypeName : "object");
+    }
+    return header->Pointer;
+}
+
+void* LuaStack::GetRawObjectPointer(int Index)
+{
+    if (IsLightUserdata(Index)) {
+        return ToUserdata(Index);
+    }
+    if (IsFullUserdata(Index)) {
+        auto* header = static_cast<LuaObjectHeader*>(ToUserdata(Index));
+        if (header && header->MagicValue == LuaObjectHeader::Magic) {
+            return header->Pointer;
+        }
+        return ToUserdata(Index);
+    }
+    return nullptr;
 }
 
 bool LuaStack::GetMetatable(int Index)

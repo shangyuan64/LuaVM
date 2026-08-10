@@ -14,7 +14,7 @@
 #define LUA_TTHREAD		8
 #endif
 
-inline LuaType Native2Type(int Type)
+LuaType Native2Type(int Type)
 {
     switch (Type) {
     case LUA_TNIL:           return LuaType::Nil;
@@ -40,7 +40,7 @@ inline LuaType Native2Type(int Type)
 #endif // !LUA_OK
 
 
-inline LuaStatus Native2Status(int Status)
+LuaStatus Native2Status(int Status)
 {
     switch (Status) {
     case LUA_OK:          return LuaStatus::Ok;

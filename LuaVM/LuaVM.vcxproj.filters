@@ -24,6 +24,12 @@
     <ClInclude Include="LuaVM.hpp">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="LuaClass.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="LuaNamespace.hpp">
+      <Filter>头文件</Filter>
+    </ClInclude>
     <ClInclude Include="TextView.hpp">
       <Filter>头文件</Filter>
     </ClInclude>

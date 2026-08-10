@@ -3,8 +3,8 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="LuaVM/LuaVM.vcxproj" />
-  <Project Path="Test5.5/Test5.5.vcxproj">
+  <Project Path="LuaVM/LuaVM.vcxproj" Id="699a99e0-8431-4a10-b553-e013227bad4a" />
+  <Project Path="Test5.5/Test5.5.vcxproj" Id="d7260ae1-14c5-4f52-9144-212ce90f3876">
     <BuildDependency Project="LuaVM/LuaVM.vcxproj" />
   </Project>
 </Solution>

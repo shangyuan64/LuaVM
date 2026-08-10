@@ -157,6 +157,8 @@
   <ItemGroup>
     <ClInclude Include="framework.h" />
     <ClInclude Include="LuaBase.hpp" />
+    <ClInclude Include="LuaClass.hpp" />
+    <ClInclude Include="LuaNamespace.hpp" />
     <ClInclude Include="LuaStack.hpp" />
     <ClInclude Include="LuaVM.hpp" />
     <ClInclude Include="pch.h" />

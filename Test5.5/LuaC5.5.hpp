@@ -1,5 +1,5 @@
 #pragma once
-#include <LuaVM.hpp>
+#include <LuaVM/LuaVM.hpp>
 #ifndef LUAC_ENTRYEX
 #define LUAC_ENTRYEX(Base, Key, Value) Base->##Key = Value
 #endif // !LUAC_ENTRYEX

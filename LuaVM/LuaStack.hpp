@@ -29,6 +29,7 @@ struct LuaStack
     void PushCFunction(LuaCFunc Func);
     void PushLightUserdata(void* Ptr);
     void PushExternalString(const char* Str, size_t Len = 0);
+    void PushNativeFunction();
 
     /*====================类型====================*/
 
@@ -86,22 +87,28 @@ struct LuaStack
     void* NewUserdata(size_t Size);
 
     // (gettable/rawget)弹出key，读取指定索引的表的key值
-    void ReadTableField(int IndexOfTableInStack, bool RawMode = false);
+    LuaType ReadTableField(int IndexOfTableInStack, bool RawMode = false);
     // (settable/rawset)弹出key和value，设置指定索引的表的key值
     void WriteTableField(int IndexOfTableInStack, bool RawMode = false);
 
-    void GetField(int Index, const char* Key); // 获取表字符串键的值
+    LuaType GetField(int Index, const char* Key); // 获取表字符串键的值
     void SetField(int Index, const char* Key); // 设置表字符串键的值
-    void GetField(int Index, LuaInt Key); // 获取表整数键的值
+    LuaType GetField(int Index, LuaInt Key); // 获取表整数键的值
     void SetField(int Index, LuaInt Key); // 设置表整数键的值
 
-    void GetGlobalField(const char* Name);   // 获取全局表中的字段
+    LuaType GetGlobalField(const char* Name);   // 获取全局表中的字段
     void SetGlobalField(const char* Name);   // 设置全局表中的字段
+
+    LuaType GetRegistryField(const char* Name); // 获取注册表中的字段
+    void SetRegistryField(const char* Name);
 
     void PushRegistry(); // 将注册表压入栈顶
 
     bool GetMetatable(int Index); // 获取元表
     void SetMetatable(int Index); // 设置元表
+
+    // 存在返回false，不存在则创建返回true
+    bool NewRegistration(const char* Name);
 };
 
 
@@ -275,7 +282,7 @@ void LuaStack::Push(T Value)
     else if constexpr (is_callable_v<T>
         /*or std::is_same_v<T, LuaCFuncWrap>
         or std::is_same_v<T, LuaCFuncWrap2>*/) {
-        PushFunction(Value);
+        PushNativeFunction(Value);
     }
     else if constexpr (std::is_pointer_v<T>) {
         //static_assert(false, "unknown type1");

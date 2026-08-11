@@ -21,7 +21,7 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{699a99e0-8431-4a10-b553-e013227bad4a}</ProjectGuid>
+    <ProjectGuid>{51151427-5080-BDF2-C5B1-158D4AA69E84}</ProjectGuid>
     <RootNamespace>LuaVM</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>

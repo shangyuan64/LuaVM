@@ -76,9 +76,9 @@ struct VMClass
 void VMClass::_InitRegistry()
 {
     if (!Parent) {
-        VM->Stack.PushRegistry();
-        VM->Stack.PushLightUserdata(this);
-        VM->Stack.WriteTableField(-2);
+        //VM->Stack.PushRegistry();
+        //VM->Stack.PushLightUserdata(this);
+        //VM->Stack.WriteTableField(-2);
     }
 }
 
@@ -134,8 +134,8 @@ public:
     void RegFunction(char const* Name, ReturnType(*Function)(Params...));
 
     template<typename Callable>
-    void RegNativeFunction(const char* Name, Callable Object);
-    void _RegNativeFunction(const char* Name, CallableBase* Object);
+    void PushNativeFunction(const char* Name, Callable Object);
+    void _PushNativeFunction(const char* Name, CallableBase* Object);
 
     template<typename Class>
     VMClass RegClass(const char* Name);
@@ -158,15 +158,16 @@ template<class ReturnType, class ...Params>
 inline void LuaVM::RegFunction(char const* Name, ReturnType(*Function)(Params...))
 {
     using FnType = decltype(Function);
-    RegNativeFunction(Name, [=](LuaVM* vm) -> int {
+    PushNativeFunction(Name, [=](LuaVM* vm) -> int {
         BridgingFactory<FnType> factory;
         factory.Function = Function;
         return factory.Transition(vm);
     });
+    Stack.SetGlobalField(Name);
 }
 
 template<typename Callable>
-inline void LuaVM::RegNativeFunction(const char* Name, Callable Object)
+inline void LuaVM::PushNativeFunction(const char* Name, Callable Object)
 {
     struct CallableAdv : CallableBase {
         Callable _Object;
@@ -178,7 +179,7 @@ inline void LuaVM::RegNativeFunction(const char* Name, Callable Object)
         }
     };
     auto obj = new CallableAdv(std::move(Object));
-    _RegNativeFunction(Name, obj);
+    _PushNativeFunction(Name, obj);
     m_FuncObjects.push_back(obj);
 }
 

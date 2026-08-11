@@ -64,18 +64,18 @@ namespace LuaC
     using tocfunction = LuaCFunc(*)(lua_State* L, int idx);
     using ttouserdata = void* (*)(lua_State* L, int idx);
 
-    using tgettable = void(*)(lua_State* L, int idx);
+    using tgettable = int(*)(lua_State* L, int idx);
     using tsettable = void(*)(lua_State* L, int idx);
-    using tgetfield = void(*)(lua_State* L, int idx, const char* k);
+    using tgetfield = int(*)(lua_State* L, int idx, const char* k);
     using tsetfield = void(*)(lua_State* L, int idx, const char* k);
-    using trawget = void(*)(lua_State* L, int idx);
+    using trawget = int(*)(lua_State* L, int idx);
     using trawset = void(*)(lua_State* L, int idx);
     // 第三个参数存在历史遗留问题，所以使用替代方案
     //using trawgeti = void(*)(lua_State* L, int idx, LuaInt n);
     //using trawseti = void(*)(lua_State* L, int idx, LuaInt n);
     using tcreatetable = void(*)(lua_State* L, int narr, int nrec);
     using tnewuserdatauv = void* (*)(lua_State* L, size_t sz, int nuvalue);
-    using tgetglobal = void(*)(lua_State* L, const char* name);
+    using tgetglobal = int(*)(lua_State* L, const char* name);
     using tsetglobal = void(*)(lua_State* L, const char* name);
     using tlua_getmetatable = int(*)(lua_State* L, int idx);
     using tlua_setmetatable = int(*)(lua_State* L, int idx);

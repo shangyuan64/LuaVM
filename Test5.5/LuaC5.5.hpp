@@ -44,41 +44,17 @@
     LUAC_ENTRY((Base), tocfunction); \
     LUAC_ENTRY((Base), touserdata); \
     /* 表操作 */ \
-    LUAC_ENTRYEX((Base), _temp, lua_gettable); \
-        using Tgettable = void(*)(lua_State* L, int idx); \
-        static auto __gettable = (Tgettable)(Base)->_temp; \
-        (Base)->gettable = [](lua_State* L, int idx) \
-        { \
-            __gettable(L, idx); \
-        };\
+    LUAC_ENTRY((Base), gettable); \
     LUAC_ENTRY((Base), settable); \
-    LUAC_ENTRYEX((Base), _temp, lua_getfield); \
-        using Tgetfield = void(*)(lua_State *L, int idx, const char *k); \
-        static auto __getfield = (Tgetfield)(Base)->_temp; \
-        (Base)->getfield = [](lua_State *L, int idx, const char *k) \
-        { \
-            __getfield(L, idx, k); \
-        };\
+    LUAC_ENTRY((Base), getfield); \
     LUAC_ENTRY((Base), setfield); \
-    LUAC_ENTRYEX((Base), _temp, lua_rawget); \
-        using Trawget = void(*)(lua_State *L, int idx); \
-        static auto __rawget = (Trawget)(Base)->_temp; \
-        (Base)->rawget = [](lua_State *L, int idx) \
-        { \
-            __rawget(L, idx); \
-        };\
+    LUAC_ENTRY((Base), rawget); \
     LUAC_ENTRY((Base), rawset); \
     /*LUAC_ENTRY((Base), rawgeti);*/ \
     /*LUAC_ENTRY((Base), rawseti);*/ \
     LUAC_ENTRY((Base), createtable); \
     LUAC_ENTRY((Base), newuserdatauv); \
-    LUAC_ENTRYEX((Base), _temp, lua_getglobal); \
-        using Tgetglobal = void(*)(lua_State *L, const char *name); \
-        static auto __getglobal = (Tgetglobal)(Base)->_temp; \
-        (Base)->getglobal = [](lua_State *L, const char *name) \
-        { \
-            __getglobal(L, name); \
-        };\
+    LUAC_ENTRY((Base), getglobal); \
     LUAC_ENTRY((Base), setglobal); \
     LUAC_ENTRY((Base), getmetatable); \
     LUAC_ENTRY((Base), setmetatable); \

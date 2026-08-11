@@ -328,12 +328,12 @@ void* LuaStack::NewUserdata(size_t Size)
     return info->newuserdatauv(State, Size, 1);
 }
 
-void LuaStack::ReadTableField(int IndexOfTableInStack, bool RawMode)
+LuaType LuaStack::ReadTableField(int IndexOfTableInStack, bool RawMode)
 {
     if (RawMode) {
-        return info->rawget(State, IndexOfTableInStack);
+        return Native2Type(info->rawget(State, IndexOfTableInStack));
     }
-    return info->gettable(State, IndexOfTableInStack);
+    return Native2Type(info->gettable(State, IndexOfTableInStack));
 }
 
 void LuaStack::WriteTableField(int IndexOfTableInStack, bool RawMode)
@@ -344,9 +344,9 @@ void LuaStack::WriteTableField(int IndexOfTableInStack, bool RawMode)
     return info->settable(State, IndexOfTableInStack);
 }
 
-void LuaStack::GetField(int Index, const char* Key)
+LuaType LuaStack::GetField(int Index, const char* Key)
 {
-    return info->getfield(State, Index, Key);
+    return Native2Type(info->getfield(State, Index, Key));
 }
 
 void LuaStack::SetField(int Index, const char* Key)
@@ -354,10 +354,10 @@ void LuaStack::SetField(int Index, const char* Key)
     return info->setfield(State, Index, Key);
 }
 
-void LuaStack::GetField(int Index, LuaInt Key)
+LuaType LuaStack::GetField(int Index, LuaInt Key)
 {
     PushInteger(Key);
-    ReadTableField(Index, true);
+    return ReadTableField(Index, true);
 }
 
 void LuaStack::SetField(int Index, LuaInt Key)
@@ -367,12 +367,12 @@ void LuaStack::SetField(int Index, LuaInt Key)
     WriteTableField(Index, true);
 }
 
-void LuaStack::GetGlobalField(const char* Name)
+LuaType LuaStack::GetGlobalField(const char* Name)
 {
     if (info->getglobal) {
-        return info->getglobal(State, Name);
+        return Native2Type(info->getglobal(State, Name));
     }
-    return info->getfield(State, info->GlobalTableIndex, Name);
+    return Native2Type(info->getfield(State, info->GlobalTableIndex, Name));
 }
 
 void LuaStack::SetGlobalField(const char* Name)
@@ -381,6 +381,16 @@ void LuaStack::SetGlobalField(const char* Name)
         return info->setglobal(State, Name);
     }
     return info->setfield(State, info->GlobalTableIndex, Name);
+}
+
+LuaType LuaStack::GetRegistryField(const char* Name)
+{
+    return Native2Type(info->getfield(State, info->RegistryTableIndex, Name));
+}
+
+void LuaStack::SetRegistryField(const char* Name)
+{
+    return info->setfield(State, info->RegistryTableIndex, Name);
 }
 
 void LuaStack::PushRegistry()
@@ -397,3 +407,19 @@ void LuaStack::SetMetatable(int Index)
 {
     info->setmetatable(State, Index);
 }
+
+bool LuaStack::NewRegistration(const char* Name)
+{
+    if (GetRegistryField(Name) != LuaType::Nil) {
+        return false;
+    }
+
+    Popup();
+    NewTable(0, 2);
+    PushString(Name);
+    SetField(-2, "__name"); // metatable.__name = Name
+    CopyToTop(-1);
+    SetRegistryField(Name); // registry.name = metatable
+    return true;
+}
+

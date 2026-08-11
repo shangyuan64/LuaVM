@@ -97,10 +97,9 @@ VMStatusObject LuaVM::ExecuteScript(const char* Script)
     return obj;
 }
 
-void LuaVM::_RegNativeFunction(const char* Name, CallableBase* Object)
+void LuaVM::_PushNativeFunction(const char* Name, CallableBase* Object)
 {
     Stack.PushCFunction(_UnfoldToLuaC(Object));
-    Stack.SetGlobalField(Name);
 }
 
 VMClass LuaVM::Global()

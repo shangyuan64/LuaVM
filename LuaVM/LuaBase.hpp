@@ -104,7 +104,6 @@ namespace LuaC
     {
         int GlobalTableIndex; // 可选：优先使用get/setglobal
         int RegistryTableIndex;
-
         tgettop gettop;
         tsettop settop;
         tcopy copy;

@@ -4,6 +4,7 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="LuaVM/LuaVM.vcxproj" />
+  <Project Path="sll2/sll2.vcxproj" Id="206dbf43-8270-4f1b-85b9-4a1c7f42e4f2" />
   <Project Path="Test5.5/Test5.5.vcxproj">
     <BuildDependency Project="LuaVM/LuaVM.vcxproj" />
   </Project>

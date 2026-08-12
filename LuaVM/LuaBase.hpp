@@ -34,6 +34,12 @@ using LuaUdt = void*;
 
 using LuaCFunc = int (*)(lua_State*);
 
+template<typename Class>
+using LuaMethod = int (Class::*)(lua_State*);
+
+template<typename Class>
+using LuaMethodConst = int (Class::*)(lua_State*) const;
+
 namespace LuaC
 {
     using tgettop = int(*)(lua_State* L);

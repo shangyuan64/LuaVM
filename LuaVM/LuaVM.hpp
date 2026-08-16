@@ -146,11 +146,16 @@ public:
     bool IsNil(int Index) const;
     bool IsVoid(int Index) const; // nil和none都算void
     bool IsValid(int Index) const; // IsVoid的反义
+    bool IsBoolean(int Index) const;
     bool IsUserdata(int Index) const;
     bool IsFullUserdata(int Index) const;
     bool IsLightUserdata(int Index) const;
+    bool IsNumber(int Index) const;
     bool IsInteger(int Index) const;
-
+    bool IsString(int Index) const;
+    bool IsThread(int Index) const;
+    bool IsFunction(int Index) const;
+    bool IsCFunction(int Index) const;
 
     /*====================获取数据====================*/
 

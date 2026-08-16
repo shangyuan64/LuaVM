@@ -205,6 +205,11 @@ bool LuaVM::IsValid(int Index) const
     return !IsVoid(Index);
 }
 
+bool LuaVM::IsBoolean(int Index) const
+{
+    return GetType(Index) == LuaType::Boolean;
+}
+
 bool LuaVM::IsUserdata(int Index) const
 {
     auto type = GetType(Index);
@@ -221,6 +226,11 @@ bool LuaVM::IsLightUserdata(int Index) const
     return GetType(Index) == LuaType::LightUserdata;
 }
 
+bool LuaVM::IsNumber(int Index) const
+{
+    return GetType(Index) == LuaType::Number;
+}
+
 bool LuaVM::IsInteger(int Index) const
 {
     if (m_CInfo.isinteger) {
@@ -233,6 +243,26 @@ bool LuaVM::IsInteger(int Index) const
 
     auto num = ToNumber(Index);
     return std::floor(num) == num;
+}
+
+bool LuaVM::IsString(int Index) const
+{
+    return GetType(Index) == LuaType::String;
+}
+
+bool LuaVM::IsThread(int Index) const
+{
+    return GetType(Index) == LuaType::Thread;
+}
+
+bool LuaVM::IsFunction(int Index) const
+{
+    return GetType(Index) == LuaType::Function;
+}
+
+bool LuaVM::IsCFunction(int Index) const
+{
+    return m_CInfo.iscfunction(m_State, Index);
 }
 
 LuaBol LuaVM::ToBoolean(int Index) const

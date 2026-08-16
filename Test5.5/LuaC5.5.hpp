@@ -36,6 +36,7 @@
     LUAC_ENTRY((Base), pushlightuserdata); \
     LUAC_ENTRY((Base), pushexternalstring); \
     /* 取值函数 */ \
+    LUAC_ENTRY((Base), iscfunction); \
     LUAC_ENTRY((Base), isinteger); \
     LUAC_ENTRY((Base), toboolean); \
     LUAC_ENTRY((Base), tointegerx); \

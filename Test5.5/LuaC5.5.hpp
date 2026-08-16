@@ -42,8 +42,10 @@
     LUAC_ENTRY((Base), tointegerx); \
     LUAC_ENTRY((Base), tonumberx); \
     LUAC_ENTRY((Base), tolstring); \
-    LUAC_ENTRY((Base), tocfunction); \
     LUAC_ENTRY((Base), touserdata); \
+    LUAC_ENTRY((Base), tothread); \
+    LUAC_ENTRY((Base), tocfunction); \
+    LUAC_ENTRY((Base), topointer); \
     /* 表操作 */ \
     LUAC_ENTRY((Base), gettable); \
     LUAC_ENTRY((Base), settable); \

@@ -160,10 +160,14 @@ public:
     /*====================获取数据====================*/
 
     LuaBol ToBoolean(int Index) const;
-    LuaInt ToInteger(int Index) const;
     LuaNum ToNumber(int Index) const;
+    LuaInt ToInteger(int Index) const;
     LuaStr ToString(int Idx, size_t* pLen = nullptr) const;
     LuaUdt ToUserdata(int Index) const;
+    lua_State* ToThread(int Index) const;
+    LuaCFunc ToCFunction(int Index) const;
+    const void* ToPointer(int Index) const;
+    
 
     LuaBol CheckBoolean(int Index);
     LuaInt CheckInteger(int Index);

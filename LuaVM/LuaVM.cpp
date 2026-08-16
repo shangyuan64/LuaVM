@@ -270,16 +270,6 @@ LuaBol LuaVM::ToBoolean(int Index) const
     return m_CInfo.toboolean(m_State, Index);
 }
 
-LuaInt LuaVM::ToInteger(int Index) const
-{
-    if (m_CInfo.tointegerx) {
-        int isInt = 0;
-        auto result = m_CInfo.tointegerx(m_State, Index, &isInt);
-        return result;
-    }
-    return m_CInfo.tointeger(m_State, Index);
-}
-
 LuaNum LuaVM::ToNumber(int Index) const
 {
     if (m_CInfo.tonumberx) {
@@ -290,6 +280,16 @@ LuaNum LuaVM::ToNumber(int Index) const
     return m_CInfo.tonumber(m_State, Index);
 }
 
+LuaInt LuaVM::ToInteger(int Index) const
+{
+    if (m_CInfo.tointegerx) {
+        int isInt = 0;
+        auto result = m_CInfo.tointegerx(m_State, Index, &isInt);
+        return result;
+    }
+    return m_CInfo.tointeger(m_State, Index);
+}
+
 LuaStr LuaVM::ToString(int Idx, size_t* pLen) const
 {
     return m_CInfo.tolstring(m_State, Idx, pLen);
@@ -298,6 +298,21 @@ LuaStr LuaVM::ToString(int Idx, size_t* pLen) const
 LuaUdt LuaVM::ToUserdata(int Index) const
 {
     return m_CInfo.touserdata(m_State, Index);
+}
+
+lua_State* LuaVM::ToThread(int Index) const
+{
+    return m_CInfo.tothread(m_State, Index);
+}
+
+LuaCFunc LuaVM::ToCFunction(int Index) const
+{
+    return m_CInfo.tocfunction(m_State, Index);
+}
+
+const void* LuaVM::ToPointer(int Index) const
+{
+    return m_CInfo.topointer(m_State, Index);
 }
 
 LuaBol LuaVM::CheckBoolean(int Index)

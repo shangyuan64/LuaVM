@@ -63,13 +63,15 @@ namespace LuaC
     using tiscfunction = int(*)(lua_State* L, int idx);
     using tisinteger = int(*)(lua_State* L, int idx);
     using ttoboolean = int(*)(lua_State* L, int idx);
-    using ttointeger = LuaInt(*)(lua_State* L, int idx);
-    using ttointegerx = LuaInt(*)(lua_State* L, int idx, int* isnum);
     using ttonumber = double(*)(lua_State* L, int idx);
     using ttonumberx = double(*)(lua_State* L, int idx, int* isnum);
+    using ttointeger = LuaInt(*)(lua_State* L, int idx);
+    using ttointegerx = LuaInt(*)(lua_State* L, int idx, int* isnum);
     using ttolstring = const char* (*)(lua_State* L, int idx, size_t* pLen);
-    using tocfunction = LuaCFunc(*)(lua_State* L, int idx);
     using ttouserdata = void* (*)(lua_State* L, int idx);
+    using ttothread = lua_State * (*)(lua_State* L, int idx);
+    using ttocfunction = LuaCFunc(*)(lua_State* L, int idx);
+    using ttopointer = const char*(*)(lua_State* L, int idx);
 
     using tgettable = int(*)(lua_State* L, int idx);
     using tsettable = void(*)(lua_State* L, int idx);
@@ -131,19 +133,22 @@ namespace LuaC
         tiscfunction iscfunction;
         tisinteger isinteger; /*nullable*/
         ttoboolean toboolean;
-        struct {
-            ttointeger tointeger; /*opt1*/
-            ttointegerx tointegerx; /*opt2*/
-        };
 
         struct {
             ttonumber tonumber; /*opt1*/
             ttonumberx tonumberx; /*opt2*/
         };
 
+        struct {
+            ttointeger tointeger; /*opt1*/
+            ttointegerx tointegerx; /*opt2*/
+        };
+
         ttolstring tolstring;
-        tocfunction tocfunction;
         ttouserdata touserdata;
+        ttothread tothread;
+        ttocfunction tocfunction;
+        ttopointer topointer;
 
         tgettable gettable;
         tsettable settable;

@@ -250,6 +250,11 @@ bool LuaVM::IsString(int Index) const
     return GetType(Index) == LuaType::String;
 }
 
+bool LuaVM::IsTable(int Index) const
+{
+    return GetType(Index) == LuaType::Table;
+}
+
 bool LuaVM::IsThread(int Index) const
 {
     return GetType(Index) == LuaType::Thread;
@@ -462,6 +467,11 @@ void LuaVM::Call(size_t ArgCount, size_t RetCount)
 
 LuaStatus LuaVM::SafeCall(size_t ArgCount, size_t RetCount, int ErrFuncIdx)
 {
+    if (IsCFunction(-1 - ArgCount) && !ToCFunction(-1 - ArgCount)) {
+        Popup(ArgCount + 1);
+        PushString("C Function Is Nullptr!!!");
+        return LuaStatus::Error;
+    }
     auto _ArgCount = static_cast<int>(ArgCount);
     auto _RetCount = static_cast<int>(RetCount);
     if (m_CInfo.pcallk) {
@@ -484,10 +494,13 @@ void LuaVM::NewTable(int Count, int Records)
 
 void* LuaVM::NewUserdata(size_t Size)
 {
-    return m_CInfo.newuserdatauv(m_State, Size, 1);
+    if (m_CInfo.newuserdatauv) {
+        return m_CInfo.newuserdatauv(m_State, Size, 1);
+    }
+    return m_CInfo.newuserdata(m_State, Size);
 }
 
-LuaType LuaVM::ReadTableField(int IndexOfTableInStack, bool RawMode)
+LuaType LuaVM::ReadTable(int IndexOfTableInStack, bool RawMode)
 {
     if (RawMode) {
         return Native2Type(m_CInfo.rawget(m_State, IndexOfTableInStack));
@@ -495,7 +508,7 @@ LuaType LuaVM::ReadTableField(int IndexOfTableInStack, bool RawMode)
     return Native2Type(m_CInfo.gettable(m_State, IndexOfTableInStack));
 }
 
-void LuaVM::WriteTableField(int IndexOfTableInStack, bool RawMode)
+void LuaVM::WriteTable(int IndexOfTableInStack, bool RawMode)
 {
     if (RawMode) {
         return m_CInfo.rawset(m_State, IndexOfTableInStack);
@@ -516,14 +529,14 @@ void LuaVM::SetField(int Index, const char* Key)
 LuaType LuaVM::GetField(int Index, LuaInt Key)
 {
     PushInteger(Key);
-    return ReadTableField(Index, true);
+    return ReadTable(Index, true);
 }
 
 void LuaVM::SetField(int Index, LuaInt Key)
 {
     PushInteger(Key);
     MoveTopTo(-2);
-    WriteTableField(Index, true);
+    WriteTable(Index, true);
 }
 
 LuaType LuaVM::GetGlobalField(const char* Name)

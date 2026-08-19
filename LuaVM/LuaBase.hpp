@@ -71,7 +71,7 @@ namespace LuaC
     using ttouserdata = void* (*)(lua_State* L, int idx);
     using ttothread = lua_State * (*)(lua_State* L, int idx);
     using ttocfunction = LuaCFunc(*)(lua_State* L, int idx);
-    using ttopointer = const char*(*)(lua_State* L, int idx);
+    using ttopointer = const void*(*)(lua_State* L, int idx);
 
     using tgettable = int(*)(lua_State* L, int idx);
     using tsettable = void(*)(lua_State* L, int idx);
@@ -83,6 +83,7 @@ namespace LuaC
     //using trawgeti = void(*)(lua_State* L, int idx, LuaInt n);
     //using trawseti = void(*)(lua_State* L, int idx, LuaInt n);
     using tcreatetable = void(*)(lua_State* L, int narr, int nrec);
+    using tnewuserdata = void* (*)(lua_State* L, size_t sz);
     using tnewuserdatauv = void* (*)(lua_State* L, size_t sz, int nuvalue);
     using tgetglobal = int(*)(lua_State* L, const char* name);
     using tsetglobal = void(*)(lua_State* L, const char* name);
@@ -159,7 +160,12 @@ namespace LuaC
         //trawgeti rawgeti;
         //trawseti rawseti;
         tcreatetable createtable;
-        tnewuserdatauv newuserdatauv;
+
+        struct {
+            tnewuserdata newuserdata; /*opt1*/
+            tnewuserdatauv newuserdatauv; /*opt2*/
+        };
+        
         tgetglobal getglobal; /*nullable*/
         tsetglobal setglobal; /*nullable*/
         tgetmetatable getmetatable;

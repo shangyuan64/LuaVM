@@ -94,7 +94,7 @@ inline VMClass& VMClass::RegFunction(char const* Name, ReturnType(*Function)(Par
     return *this;
 }
 
-class LUAVM_API LuaVM
+struct LUAVM_API LuaVM
 {
 public:
     LuaVM() = default; ~LuaVM();
@@ -153,6 +153,7 @@ public:
     bool IsNumber(int Index) const;
     bool IsInteger(int Index) const;
     bool IsString(int Index) const;
+    bool IsTable(int Index) const;
     bool IsThread(int Index) const;
     bool IsFunction(int Index) const;
     bool IsCFunction(int Index) const;
@@ -207,9 +208,9 @@ public:
     T* NewUserdata();
 
     // (gettable/rawget)弹出key，读取指定索引的表的key值
-    LuaType ReadTableField(int IndexOfTableInStack, bool RawMode = false);
+    LuaType ReadTable(int IndexOfTableInStack, bool RawMode = false);
     // (settable/rawset)弹出key和value，设置指定索引的表的key值
-    void WriteTableField(int IndexOfTableInStack, bool RawMode = false);
+    void WriteTable(int IndexOfTableInStack, bool RawMode = false);
 
     LuaType GetField(int Index, const char* Key); // 获取表字符串键的值
     void SetField(int Index, const char* Key); // 设置表字符串键的值
@@ -343,27 +344,37 @@ inline T LuaVM::Get(int Index)
     else if constexpr (std::is_same_v<T, const char*>) {
         return CheckString(Index);
     }
-    else if constexpr (std::is_same_v<T, void*>
-        or std::is_same_v<T, const void*> or iFunction_pointer_v<T>)
+    else if constexpr (std::is_same_v<T, void*> or std::is_same_v<T, const void*> or iFunction_pointer_v<T>)
     {
-        if (IsUserdata(Index)) {
+        if (IsUserdata()) {
             return static_cast<T>(ToUserdata(Index));
         }
-        else if (IsInteger(Index)) {
-            return reinterpret_cast<T>(ToInteger(Index));
+        if (IsInteger()) {
+            return static_cast<T>(ToInteger(Index));
+        }
+        char buffer[256] = { 0 };
+        snprintf(buffer, sizeof(buffer),
+            "Bad Get[void*]: [%d]%s", GetType(Index), GetTypeName(Index));
+        Throw(buffer);
+    }
+    else if constexpr (std::is_pointer_v<T>) {
+        auto type = GetType(Index);
+        if (type == LuaType::LightUserdata || type == LuaType::Userdata)
+        {
+            auto ud = ToUserdata(Index);
+            if (!ud || type == LuaType::LightUserdata) {
+                return static_cast<T>(ud);
+            }
+
+            return *static_cast<T*>(ud);
+        }
+        else if (type == LuaType::Nil) {
+            return nullptr;
         }
         char buffer[256] = { 0 };
         snprintf(buffer, sizeof(buffer),
             "Bad Get: [%d]%s", GetType(Index), GetTypeName(Index));
         Throw(buffer);
-    }
-    else if constexpr (std::is_pointer_v<T>) {
-        if (IsUserdata(Index)) {
-            return static_cast<T>(ToUserdata(Index));
-        }
-        else if (IsInteger(Index)) {
-            return reinterpret_cast<T>(ToInteger(Index));
-        }
     }
 }
 
